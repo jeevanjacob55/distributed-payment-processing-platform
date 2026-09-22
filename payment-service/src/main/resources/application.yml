@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: payment-service
+  profiles:
+    default: dev
+server:
+  port: ${SERVER_PORT:8081}
+management:
+  endpoints.web.exposure.include: health,info,prometheus

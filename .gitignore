@@ -1,0 +1,24 @@
+# Build output and IDE files
+**/target/
+**/.mvn/timing.properties
+.idea/
+*.iml
+.vscode/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.yaml
+
+# Observability and test output
+coverage/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+instructions/
+interview/
+
