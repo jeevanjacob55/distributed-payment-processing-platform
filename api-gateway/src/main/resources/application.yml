@@ -5,6 +5,31 @@ spring:
     time-zone: ${TZ:UTC}
   profiles:
     default: dev
+  cloud:
+    gateway:
+      routes:
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/payments/**
+        - id: ledger-service
+          uri: ${LEDGER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/accounts/**
+        - id: fraud-service
+          uri: ${FRAUD_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/fraud/**
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/notifications/**
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI}
+          jwk-set-uri: ${JWT_JWK_SET_URI}
 server:
   port: ${SERVER_PORT:8080}
 management:

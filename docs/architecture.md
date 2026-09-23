@@ -16,6 +16,10 @@ Each service owns its schema/database credentials. Services never write another 
 
 Client commands enter through the gateway and call the payment service synchronously. The payment service commits its state transition and transactional-outbox record in one PostgreSQL transaction. An outbox publisher subsequently delivers the event to Kafka. Consumers are idempotent and persist their consumption state before acknowledging a message.
 
+## Gateway routing and security
+
+The API gateway uses static local routes for `/api/payments/**`, `/api/accounts/**`, `/api/fraud/**`, and `/api/notifications/**`; service URLs are environment-configured for container and cloud deployments. It is an OAuth 2.0 resource server that validates JWT signatures and issuer claims using an OpenID Connect provider's JWK Set. Role-based route authorization is described in [security.md](security.md).
+
 Kafka topics use versioned payloads and a partition key of `paymentId` to preserve payment event ordering:
 
 | Topic | Producer | Consumers |
