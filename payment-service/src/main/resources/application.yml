@@ -5,9 +5,6 @@ spring:
     time-zone: ${TZ:UTC}
   profiles:
     default: dev
-server:
-  port: ${SERVER_PORT:8081}
-  shutdown: graceful
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:payment_platform}
     username: ${POSTGRES_USER:payment}
@@ -22,6 +19,9 @@ server:
     open-in-view: false
     properties:
       hibernate.jdbc.time_zone: UTC
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
 management:
   endpoints.web.exposure.include: health,info,prometheus
 logging:

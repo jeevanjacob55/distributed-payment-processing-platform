@@ -26,4 +26,8 @@ public class Account {
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
     protected Account() {}
+
+    public UUID getId() {
+        return id;
+    }
 }

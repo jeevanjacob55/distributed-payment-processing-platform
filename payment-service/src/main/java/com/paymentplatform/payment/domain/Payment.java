@@ -30,4 +30,34 @@ public class Payment {
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
     protected Payment() {}
+
+    public static Payment create(
+            Account payerAccount,
+            Account payeeAccount,
+            BigDecimal amount,
+            String currency,
+            String merchantReference,
+            String idempotencyKey) {
+        Payment payment = new Payment();
+        payment.id = UUID.randomUUID();
+        payment.payerAccount = payerAccount;
+        payment.payeeAccount = payeeAccount;
+        payment.amount = amount;
+        payment.currency = currency;
+        payment.merchantReference = merchantReference;
+        payment.idempotencyKey = idempotencyKey;
+        payment.status = PaymentStatus.CREATED;
+        payment.createdAt = Instant.now();
+        payment.updatedAt = payment.createdAt;
+        return payment;
+    }
+
+    public UUID getId() { return id; }
+    public Account getPayerAccount() { return payerAccount; }
+    public Account getPayeeAccount() { return payeeAccount; }
+    public BigDecimal getAmount() { return amount; }
+    public String getCurrency() { return currency; }
+    public String getMerchantReference() { return merchantReference; }
+    public PaymentStatus getStatus() { return status; }
+    public Instant getCreatedAt() { return createdAt; }
 }
