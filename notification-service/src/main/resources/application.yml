@@ -1,9 +1,14 @@
 spring:
   application:
     name: notification-service
+  jackson:
+    time-zone: ${TZ:UTC}
   profiles:
     default: dev
 server:
   port: ${SERVER_PORT:8084}
 management:
   endpoints.web.exposure.include: health,info,prometheus
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC} level=%-5level service=${spring.application.name} trace=%X{traceId:-} request=%X{requestId:-} logger=%logger{36} - %msg%n"

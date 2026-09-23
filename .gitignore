@@ -19,6 +19,7 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+#dont change the below 
 instructions/
 interview/
 
