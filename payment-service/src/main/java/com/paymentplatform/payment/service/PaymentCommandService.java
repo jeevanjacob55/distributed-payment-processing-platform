@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -55,16 +56,9 @@ public class PaymentCommandService {
     @Transactional
     public PaymentCreationResponse createPayment(CreatePaymentRequest request, String idempotencyKey) {
         String requestHash = requestHash(request);
-        var existing = idempotencyRecordRepository.findByScopeAndIdempotencyKey("payments.create", idempotencyKey);
-        if (existing.isPresent()) {
-            IdempotencyRecord record = existing.get();
-            if (!record.hasRequestHash(requestHash)) {
-                throw new IdempotencyConflictException();
-            }
-            if (record.getPayment() == null) {
-                throw new InvalidPaymentRequestException("A request with this Idempotency-Key is still being processed");
-            }
-            return new PaymentCreationResponse(PaymentResponse.from(record.getPayment()), false);
+        Optional<PaymentCreationResponse> replay = findIdempotentReplay(idempotencyKey, requestHash);
+        if (replay.isPresent()) {
+            return replay.get();
         }
 
         if (request.payerAccountId().equals(request.payeeAccountId())) {
@@ -74,6 +68,13 @@ public class PaymentCommandService {
         Account[] accounts = loadAccountsForUpdate(request.payerAccountId(), request.payeeAccountId());
         Account payer = accounts[0];
         Account payee = accounts[1];
+
+        // The account locks serialize same-payer requests. Rechecking the key after acquiring
+        // them closes the race where identical requests both observed no idempotency record.
+        replay = findIdempotentReplay(idempotencyKey, requestHash);
+        if (replay.isPresent()) {
+            return replay.get();
+        }
         validatePayment(request, payer, payee);
 
         Payment payment = Payment.create(
@@ -111,6 +112,22 @@ public class PaymentCommandService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    private Optional<PaymentCreationResponse> findIdempotentReplay(String idempotencyKey, String requestHash) {
+        return idempotencyRecordRepository
+                .findByScopeAndIdempotencyKey("payments.create", idempotencyKey)
+                .map(record -> replay(record, requestHash));
+    }
+
+    private PaymentCreationResponse replay(IdempotencyRecord record, String requestHash) {
+        if (!record.hasRequestHash(requestHash)) {
+            throw new IdempotencyConflictException();
+        }
+        if (record.getPayment() == null) {
+            throw new InvalidPaymentRequestException("A request with this Idempotency-Key is still being processed");
+        }
+        return new PaymentCreationResponse(PaymentResponse.from(record.getPayment()), false);
     }
 
     private String serialize(PaymentResponse response) {
