@@ -2,6 +2,7 @@ package com.paymentplatform.payment.api;
 
 import com.paymentplatform.payment.service.PaymentCommandService;
 import com.paymentplatform.payment.service.PaymentQueryService;
+import com.paymentplatform.payment.service.RefundCommandService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -23,10 +24,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
     private final PaymentCommandService paymentCommandService;
     private final PaymentQueryService paymentQueryService;
+    private final RefundCommandService refundCommandService;
 
-    public PaymentController(PaymentCommandService paymentCommandService, PaymentQueryService paymentQueryService) {
+    public PaymentController(
+            PaymentCommandService paymentCommandService,
+            PaymentQueryService paymentQueryService,
+            RefundCommandService refundCommandService) {
         this.paymentCommandService = paymentCommandService;
         this.paymentQueryService = paymentQueryService;
+        this.refundCommandService = refundCommandService;
     }
 
     @PostMapping
@@ -43,5 +49,12 @@ public class PaymentController {
     @GetMapping("/{paymentId}")
     public PaymentResponse getPayment(@PathVariable UUID paymentId) {
         return paymentQueryService.getPayment(paymentId);
+    }
+
+    @PostMapping("/{paymentId}/refund")
+    public ResponseEntity<RefundResponse> createRefund(
+            @PathVariable UUID paymentId, @Valid @RequestBody CreateRefundRequest request) {
+        RefundResponse refund = refundCommandService.createRefund(paymentId, request);
+        return ResponseEntity.created(URI.create("/api/payments/" + paymentId + "/refunds/" + refund.id())).body(refund);
     }
 }

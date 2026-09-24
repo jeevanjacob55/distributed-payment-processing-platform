@@ -30,4 +30,21 @@ public class Account {
     public UUID getId() {
         return id;
     }
+
+    public String getCurrency() { return currency; }
+    public AccountStatus getStatus() { return status; }
+    public BigDecimal getAvailableBalance() { return availableBalance; }
+
+    public void debit(BigDecimal amount) {
+        if (availableBalance.compareTo(amount) < 0) {
+            throw new IllegalStateException("insufficient available balance");
+        }
+        availableBalance = availableBalance.subtract(amount);
+        updatedAt = Instant.now();
+    }
+
+    public void credit(BigDecimal amount) {
+        availableBalance = availableBalance.add(amount);
+        updatedAt = Instant.now();
+    }
 }

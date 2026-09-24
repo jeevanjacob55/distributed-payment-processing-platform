@@ -1,7 +1,9 @@
 package com.paymentplatform.payment.error;
 
-import com.paymentplatform.payment.exception.InvalidPaymentRequestException;
+import com.paymentplatform.payment.exception.DuplicateReferenceException;
 import com.paymentplatform.payment.exception.IdempotencyConflictException;
+import com.paymentplatform.payment.exception.InvalidPaymentRequestException;
+import com.paymentplatform.payment.exception.PaymentRejectedException;
 import com.paymentplatform.payment.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -47,6 +49,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IdempotencyConflictException.class)
     ResponseEntity<ApiError> handleIdempotencyConflict(IdempotencyConflictException exception, HttpServletRequest request) {
         return response(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", exception.getMessage(), request, Map.of());
+    }
+
+    @ExceptionHandler(DuplicateReferenceException.class)
+    ResponseEntity<ApiError> handleDuplicateReference(DuplicateReferenceException exception, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "DUPLICATE_REFERENCE", exception.getMessage(), request, Map.of());
+    }
+
+    @ExceptionHandler(PaymentRejectedException.class)
+    ResponseEntity<ApiError> handlePaymentRejected(PaymentRejectedException exception, HttpServletRequest request) {
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, "PAYMENT_REJECTED", exception.getMessage(), request, Map.of());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

@@ -6,17 +6,25 @@ import com.paymentplatform.payment.api.CreatePaymentRequest;
 import com.paymentplatform.payment.api.PaymentCreationResponse;
 import com.paymentplatform.payment.api.PaymentResponse;
 import com.paymentplatform.payment.domain.Account;
+import com.paymentplatform.payment.domain.AccountStatus;
 import com.paymentplatform.payment.domain.IdempotencyRecord;
 import com.paymentplatform.payment.domain.Payment;
+import com.paymentplatform.payment.domain.PaymentStatus;
+import com.paymentplatform.payment.event.PaymentEventPublisher;
+import com.paymentplatform.payment.exception.DuplicateReferenceException;
 import com.paymentplatform.payment.exception.IdempotencyConflictException;
 import com.paymentplatform.payment.exception.InvalidPaymentRequestException;
+import com.paymentplatform.payment.exception.PaymentRejectedException;
 import com.paymentplatform.payment.exception.ResourceNotFoundException;
 import com.paymentplatform.payment.repository.AccountRepository;
 import com.paymentplatform.payment.repository.IdempotencyRecordRepository;
 import com.paymentplatform.payment.repository.PaymentRepository;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,16 +34,22 @@ public class PaymentCommandService {
     private final IdempotencyRecordRepository idempotencyRecordRepository;
     private final PaymentRepository paymentRepository;
     private final ObjectMapper objectMapper;
+    private final BigDecimal maxPaymentAmount;
+    private final PaymentEventPublisher paymentEventPublisher;
 
     public PaymentCommandService(
             AccountRepository accountRepository,
             IdempotencyRecordRepository idempotencyRecordRepository,
             PaymentRepository paymentRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Value("${payment.max-amount:1000000.0000}") BigDecimal maxPaymentAmount,
+            PaymentEventPublisher paymentEventPublisher) {
         this.accountRepository = accountRepository;
         this.idempotencyRecordRepository = idempotencyRecordRepository;
         this.paymentRepository = paymentRepository;
         this.objectMapper = objectMapper;
+        this.maxPaymentAmount = maxPaymentAmount;
+        this.paymentEventPublisher = paymentEventPublisher;
     }
 
     @Transactional
@@ -57,10 +71,10 @@ public class PaymentCommandService {
             throw new InvalidPaymentRequestException("payer and payee accounts must be different");
         }
 
-        Account payer = accountRepository.findById(request.payerAccountId())
-                .orElseThrow(() -> new ResourceNotFoundException("payer account was not found"));
-        Account payee = accountRepository.findById(request.payeeAccountId())
-                .orElseThrow(() -> new ResourceNotFoundException("payee account was not found"));
+        Account[] accounts = loadAccountsForUpdate(request.payerAccountId(), request.payeeAccountId());
+        Account payer = accounts[0];
+        Account payee = accounts[1];
+        validatePayment(request, payer, payee);
 
         Payment payment = Payment.create(
                 payer,
@@ -71,6 +85,12 @@ public class PaymentCommandService {
                 idempotencyKey);
         IdempotencyRecord record = IdempotencyRecord.inProgress("payments.create", idempotencyKey, requestHash);
         Payment savedPayment = paymentRepository.save(payment);
+        payer.debit(request.amount());
+        payee.credit(request.amount());
+        savedPayment.transitionTo(PaymentStatus.VALIDATED);
+        savedPayment.transitionTo(PaymentStatus.AUTHORIZED);
+        savedPayment.transitionTo(PaymentStatus.COMPLETED);
+        paymentEventPublisher.publishCompleted(savedPayment);
         PaymentResponse response = PaymentResponse.from(savedPayment);
         record.complete(savedPayment, serialize(response));
         idempotencyRecordRepository.save(record);
@@ -98,6 +118,38 @@ public class PaymentCommandService {
             return objectMapper.writeValueAsString(response);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Unable to serialize idempotent response", exception);
+        }
+    }
+
+    private Account[] loadAccountsForUpdate(UUID payerAccountId, UUID payeeAccountId) {
+        UUID firstId = payerAccountId.compareTo(payeeAccountId) < 0 ? payerAccountId : payeeAccountId;
+        UUID secondId = firstId.equals(payerAccountId) ? payeeAccountId : payerAccountId;
+        Account first = accountRepository
+                .findByIdForUpdate(firstId)
+                .orElseThrow(() -> new ResourceNotFoundException("account was not found"));
+        Account second = accountRepository
+                .findByIdForUpdate(secondId)
+                .orElseThrow(() -> new ResourceNotFoundException("account was not found"));
+        return payerAccountId.equals(firstId) ? new Account[] {first, second} : new Account[] {second, first};
+    }
+
+    private void validatePayment(CreatePaymentRequest request, Account payer, Account payee) {
+        if (paymentRepository
+                .findByPayerAccount_IdAndMerchantReference(payer.getId(), request.merchantReference())
+                .isPresent()) {
+            throw new DuplicateReferenceException("merchant reference has already been used for this payer account");
+        }
+        if (payer.getStatus() != AccountStatus.ACTIVE || payee.getStatus() != AccountStatus.ACTIVE) {
+            throw new PaymentRejectedException("payer and payee accounts must be active");
+        }
+        if (!request.currency().equals(payer.getCurrency()) || !request.currency().equals(payee.getCurrency())) {
+            throw new PaymentRejectedException("payment currency must match both account currencies");
+        }
+        if (payer.getAvailableBalance().compareTo(request.amount()) < 0) {
+            throw new PaymentRejectedException("payer account has insufficient available balance");
+        }
+        if (request.amount().compareTo(maxPaymentAmount) > 0) {
+            throw new PaymentRejectedException("payment amount exceeds the configured limit");
         }
     }
 }

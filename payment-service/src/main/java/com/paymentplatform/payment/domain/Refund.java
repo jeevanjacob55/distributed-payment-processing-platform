@@ -25,4 +25,25 @@ public class Refund {
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
     protected Refund() {}
+
+    public static Refund create(Payment payment, BigDecimal amount, String reference) {
+        Refund refund = new Refund();
+        refund.id = UUID.randomUUID();
+        refund.payment = payment;
+        refund.amount = amount;
+        refund.currency = payment.getCurrency();
+        refund.reference = reference;
+        refund.status = RefundStatus.COMPLETED;
+        refund.createdAt = Instant.now();
+        refund.updatedAt = refund.createdAt;
+        return refund;
+    }
+
+    public UUID getId() { return id; }
+    public UUID getPaymentId() { return payment.getId(); }
+    public BigDecimal getAmount() { return amount; }
+    public String getCurrency() { return currency; }
+    public RefundStatus getStatus() { return status; }
+    public String getReference() { return reference; }
+    public Instant getCreatedAt() { return createdAt; }
 }
