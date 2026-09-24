@@ -1,9 +1,11 @@
 package com.paymentplatform.payment.error;
 
 import com.paymentplatform.payment.exception.DuplicateReferenceException;
+import com.paymentplatform.payment.exception.DistributedLockUnavailableException;
 import com.paymentplatform.payment.exception.IdempotencyConflictException;
 import com.paymentplatform.payment.exception.InvalidPaymentRequestException;
 import com.paymentplatform.payment.exception.PaymentRejectedException;
+import com.paymentplatform.payment.exception.PaymentProcessingException;
 import com.paymentplatform.payment.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -59,6 +61,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PaymentRejectedException.class)
     ResponseEntity<ApiError> handlePaymentRejected(PaymentRejectedException exception, HttpServletRequest request) {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "PAYMENT_REJECTED", exception.getMessage(), request, Map.of());
+    }
+
+    @ExceptionHandler(PaymentProcessingException.class)
+    ResponseEntity<ApiError> handlePaymentProcessing(PaymentProcessingException exception, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "PAYMENT_IN_PROGRESS", exception.getMessage(), request, Map.of());
+    }
+
+    @ExceptionHandler(DistributedLockUnavailableException.class)
+    ResponseEntity<ApiError> handleLockUnavailable(
+            DistributedLockUnavailableException exception, HttpServletRequest request) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, "IDEMPOTENCY_UNAVAILABLE", exception.getMessage(), request, Map.of());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

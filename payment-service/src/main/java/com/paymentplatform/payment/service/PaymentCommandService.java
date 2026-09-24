@@ -11,6 +11,7 @@ import com.paymentplatform.payment.domain.IdempotencyRecord;
 import com.paymentplatform.payment.domain.Payment;
 import com.paymentplatform.payment.domain.PaymentStatus;
 import com.paymentplatform.payment.event.PaymentEventPublisher;
+import com.paymentplatform.payment.exception.PaymentProcessingException;
 import com.paymentplatform.payment.exception.DuplicateReferenceException;
 import com.paymentplatform.payment.exception.IdempotencyConflictException;
 import com.paymentplatform.payment.exception.InvalidPaymentRequestException;
@@ -19,6 +20,8 @@ import com.paymentplatform.payment.exception.ResourceNotFoundException;
 import com.paymentplatform.payment.repository.AccountRepository;
 import com.paymentplatform.payment.repository.IdempotencyRecordRepository;
 import com.paymentplatform.payment.repository.PaymentRepository;
+import com.paymentplatform.payment.lock.IdempotencyLock;
+import com.paymentplatform.payment.lock.IdempotencyLockService;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -28,6 +31,8 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PaymentCommandService {
@@ -37,6 +42,7 @@ public class PaymentCommandService {
     private final ObjectMapper objectMapper;
     private final BigDecimal maxPaymentAmount;
     private final PaymentEventPublisher paymentEventPublisher;
+    private final IdempotencyLockService idempotencyLockService;
 
     public PaymentCommandService(
             AccountRepository accountRepository,
@@ -44,13 +50,15 @@ public class PaymentCommandService {
             PaymentRepository paymentRepository,
             ObjectMapper objectMapper,
             @Value("${payment.max-amount:1000000.0000}") BigDecimal maxPaymentAmount,
-            PaymentEventPublisher paymentEventPublisher) {
+            PaymentEventPublisher paymentEventPublisher,
+            IdempotencyLockService idempotencyLockService) {
         this.accountRepository = accountRepository;
         this.idempotencyRecordRepository = idempotencyRecordRepository;
         this.paymentRepository = paymentRepository;
         this.objectMapper = objectMapper;
         this.maxPaymentAmount = maxPaymentAmount;
         this.paymentEventPublisher = paymentEventPublisher;
+        this.idempotencyLockService = idempotencyLockService;
     }
 
     @Transactional
@@ -60,6 +68,11 @@ public class PaymentCommandService {
         if (replay.isPresent()) {
             return replay.get();
         }
+
+        IdempotencyLock lock = idempotencyLockService
+                .tryAcquire(idempotencyKey)
+                .orElseThrow(PaymentProcessingException::new);
+        releaseAfterTransactionCompletion(lock);
 
         if (request.payerAccountId().equals(request.payeeAccountId())) {
             throw new InvalidPaymentRequestException("payer and payee accounts must be different");
@@ -168,5 +181,14 @@ public class PaymentCommandService {
         if (request.amount().compareTo(maxPaymentAmount) > 0) {
             throw new PaymentRejectedException("payment amount exceeds the configured limit");
         }
+    }
+
+    private void releaseAfterTransactionCompletion(IdempotencyLock lock) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                lock.close();
+            }
+        });
     }
 }

@@ -30,6 +30,12 @@ Kafka topics use versioned payloads and a partition key of `paymentId` to preser
 
 Redis is not a source of financial truth. It is reserved for short-lived rate limits, idempotency hot-cache entries, and narrowly scoped distributed locks where a documented cross-resource critical section cannot be protected by PostgreSQL row/version locking. PostgreSQL constraints and transactions remain the final guarantee against duplicate charges.
 
+### Distributed locking
+
+Payment creation uses a Redis `SET NX` lock only for the short cross-instance window after a new idempotency key has been observed but before its PostgreSQL idempotency row is committed. The key is SHA-256 hashed before use in Redis, has a 30-second TTL, and is released with an owner-token Lua compare-and-delete script after the database transaction completes. This prevents two application instances from independently treating the same new key as absent. A lock miss returns `409 PAYMENT_IN_PROGRESS`; a Redis outage returns `503 IDEMPOTENCY_UNAVAILABLE` without processing the command.
+
+Redis is deliberately not used to lock account balances or authorize funds. Those operations use deterministic PostgreSQL `PESSIMISTIC_WRITE` account-row locks, optimistic versions, constraints, and one transaction, which remain authoritative if Redis expires, restarts, or is partitioned.
+
 ## AWS topology
 
 Production deploys independently scalable containers to ECS/Fargate behind an Application Load Balancer. Private subnets contain the services, RDS PostgreSQL, ElastiCache Redis and MSK; only the load balancer is public. Secrets are retrieved from AWS Secrets Manager through task IAM roles. CloudWatch collects platform logs; Prometheus-compatible metrics feed Grafana. Terraform defines all infrastructure, with separate state and parameters per environment.

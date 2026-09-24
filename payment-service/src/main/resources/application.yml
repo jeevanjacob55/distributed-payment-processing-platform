@@ -8,6 +8,10 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   profiles:
     default: dev
   datasource:
@@ -31,6 +35,8 @@ payment:
   max-amount: ${PAYMENT_MAX_AMOUNT:1000000.0000}
   events:
     completed-topic: ${PAYMENT_COMPLETED_TOPIC:payment.completed}
+  idempotency-lock:
+    ttl: ${PAYMENT_IDEMPOTENCY_LOCK_TTL:PT30S}
 management:
   endpoints.web.exposure.include: health,info,prometheus
 logging:
