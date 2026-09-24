@@ -1,6 +1,7 @@
 package com.paymentplatform.payment.error;
 
 import com.paymentplatform.payment.exception.InvalidPaymentRequestException;
+import com.paymentplatform.payment.exception.IdempotencyConflictException;
 import com.paymentplatform.payment.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -41,6 +42,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException exception, HttpServletRequest request) {
         return response(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", exception.getMessage(), request, Map.of());
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    ResponseEntity<ApiError> handleIdempotencyConflict(IdempotencyConflictException exception, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", exception.getMessage(), request, Map.of());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

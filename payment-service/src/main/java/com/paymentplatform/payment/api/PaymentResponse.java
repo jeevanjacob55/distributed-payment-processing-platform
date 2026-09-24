@@ -14,7 +14,9 @@ public record PaymentResponse(
         String currency,
         String merchantReference,
         PaymentStatus status,
-        Instant createdAt) {
+        String failureCode,
+        Instant createdAt,
+        Instant updatedAt) {
     public static PaymentResponse from(Payment payment) {
         return new PaymentResponse(
                 payment.getId(),
@@ -24,6 +26,8 @@ public record PaymentResponse(
                 payment.getCurrency(),
                 payment.getMerchantReference(),
                 payment.getStatus(),
-                payment.getCreatedAt());
+                payment.getFailureCode(),
+                payment.getCreatedAt(),
+                payment.getUpdatedAt());
     }
 }

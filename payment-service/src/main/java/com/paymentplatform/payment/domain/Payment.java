@@ -11,11 +11,20 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
 @Table(name = "payments", schema = "payment")
 public class Payment {
+    private static final Map<PaymentStatus, EnumSet<PaymentStatus>> VALID_TRANSITIONS = Map.of(
+            PaymentStatus.CREATED, EnumSet.of(PaymentStatus.VALIDATED, PaymentStatus.FAILED),
+            PaymentStatus.VALIDATED, EnumSet.of(PaymentStatus.AUTHORIZED, PaymentStatus.FAILED),
+            PaymentStatus.AUTHORIZED, EnumSet.of(PaymentStatus.COMPLETED, PaymentStatus.FAILED, PaymentStatus.REVERSED),
+            PaymentStatus.COMPLETED, EnumSet.of(PaymentStatus.REVERSED),
+            PaymentStatus.FAILED, EnumSet.noneOf(PaymentStatus.class),
+            PaymentStatus.REVERSED, EnumSet.noneOf(PaymentStatus.class));
     @Id private UUID id;
     @ManyToOne(optional = false) @JoinColumn(name = "payer_account_id", nullable = false) private Account payerAccount;
     @ManyToOne(optional = false) @JoinColumn(name = "payee_account_id", nullable = false) private Account payeeAccount;
@@ -59,5 +68,24 @@ public class Payment {
     public String getCurrency() { return currency; }
     public String getMerchantReference() { return merchantReference; }
     public PaymentStatus getStatus() { return status; }
+    public String getFailureCode() { return failureCode; }
     public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+
+    public void transitionTo(PaymentStatus targetStatus) {
+        if (!VALID_TRANSITIONS.get(status).contains(targetStatus)) {
+            throw new IllegalStateException("Cannot transition payment from " + status + " to " + targetStatus);
+        }
+        status = targetStatus;
+        updatedAt = Instant.now();
+    }
+
+    public void fail(String code) {
+        if (!VALID_TRANSITIONS.get(status).contains(PaymentStatus.FAILED)) {
+            throw new IllegalStateException("Cannot fail payment in " + status + " state");
+        }
+        failureCode = code;
+        status = PaymentStatus.FAILED;
+        updatedAt = Instant.now();
+    }
 }
