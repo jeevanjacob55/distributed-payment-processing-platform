@@ -30,6 +30,8 @@ Kafka topics use versioned payloads and a partition key of `paymentId` to preser
 
 The Fraud Service stores enabled, versionable-by-code rule definitions in its own schema and evaluates configured maximum amounts, transaction velocity, repeated failed references, rolling transaction volume, and blocked account IDs. Rule changes use the Fraud Service rule API and take effect on the next evaluation. An evaluation returns `APPROVED`, `REVIEW`, or `BLOCKED` with matching rule codes. The payment event decision loop is task 38; the task 37 API can also be called directly for rule administration and evaluation.
 
+For the event flow, Fraud consumes `payment.created.v1`, evaluates enabled rules, and stores the result with a decision outbox row in the same fraud-schema transaction as its event inbox record. The outbox publishes versioned decisions to `payment.fraud-decision.v1`, keyed by payment ID. Payment consumes and deduplicates those decisions using the source event ID. Decisions are currently recorded as asynchronous risk results; payment creation still completes synchronously and does not wait for or reverse based on a later fraud decision.
+
 Redis is not a source of financial truth. It is reserved for short-lived rate limits, idempotency hot-cache entries, and narrowly scoped distributed locks where a documented cross-resource critical section cannot be protected by PostgreSQL row/version locking. PostgreSQL constraints and transactions remain the final guarantee against duplicate charges.
 
 ### Distributed locking

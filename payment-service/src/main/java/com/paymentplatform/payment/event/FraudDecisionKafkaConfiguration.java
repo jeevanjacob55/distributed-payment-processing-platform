@@ -1,4 +1,4 @@
-package com.paymentplatform.fraud.event;
+package com.paymentplatform.payment.event;
 
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -15,15 +15,14 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.util.backoff.FixedBackOff;
 
 @Configuration
-public class KafkaConsumerConfiguration {
+public class FraudDecisionKafkaConfiguration {
     @Bean
-    NewTopic fraudDecisionTopic(
-            @Value("${fraud.events.decision-topic:payment.fraud-decision.v1}") String topic) {
+    NewTopic fraudDecisionTopic(@Value("${payment.events.fraud-decision-topic:payment.fraud-decision.v1}") String topic) {
         return TopicBuilder.name(topic).partitions(3).replicas(1).build();
     }
 
     @Bean
-    NewTopic paymentDeadLetterTopic(@Value("${fraud.events.dead-letter-topic:payment.dlq.v1}") String topic) {
+    NewTopic paymentDeadLetterTopic(@Value("${payment.events.dead-letter-topic:payment.dlq.v1}") String topic) {
         return TopicBuilder.name(topic).partitions(3).replicas(1).build();
     }
 
@@ -31,7 +30,7 @@ public class KafkaConsumerConfiguration {
     ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             ConsumerFactory<String, String> consumerFactory,
             KafkaTemplate<Object, Object> kafkaTemplate,
-            @Value("${fraud.events.dead-letter-topic:payment.dlq.v1}") String deadLetterTopic) {
+            @Value("${payment.events.dead-letter-topic:payment.dlq.v1}") String deadLetterTopic) {
         var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
         factory.setConsumerFactory(consumerFactory);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);

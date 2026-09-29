@@ -26,9 +26,18 @@ public class FraudEvaluationService {
 
     @Transactional(readOnly = true)
     public FraudEvaluationResponse evaluate(FraudEvaluationRequest request) {
+        return evaluate(request, null);
+    }
+
+    @Transactional(readOnly = true)
+    public FraudEvaluationResponse evaluateForEvent(FraudEvaluationRequest request, UUID currentPaymentId) {
+        return evaluate(request, currentPaymentId);
+    }
+
+    private FraudEvaluationResponse evaluate(FraudEvaluationRequest request, UUID currentPaymentId) {
         List<FraudEvaluationResponse.RuleMatch> matches = new ArrayList<>();
         for (FraudRuleResponse rule : ruleService.enabledRules()) {
-            String reason = evaluateRule(rule, request);
+            String reason = evaluateRule(rule, request, currentPaymentId);
             if (reason != null) {
                 matches.add(new FraudEvaluationResponse.RuleMatch(rule.code(), rule.action().name(), reason));
             }
@@ -39,13 +48,13 @@ public class FraudEvaluationService {
         return new FraudEvaluationResponse(decision, List.copyOf(matches));
     }
 
-    private String evaluateRule(FraudRuleResponse rule, FraudEvaluationRequest request) {
+    private String evaluateRule(FraudRuleResponse rule, FraudEvaluationRequest request, UUID currentPaymentId) {
         JsonNode parameters = rule.parameters();
         return switch (rule.type()) {
             case MAX_AMOUNT -> request.amount().compareTo(parameters.get("threshold").decimalValue()) > 0
                     ? "payment amount exceeds rule threshold"
                     : null;
-            case VELOCITY -> velocityExceeded(request, parameters);
+            case VELOCITY -> velocityExceeded(request, parameters, currentPaymentId);
             case REPEATED_REFERENCE -> repeatedReference(request, parameters);
             case MAX_VOLUME -> volumeExceeded(request, parameters);
             case BLOCKED_ACCOUNT -> isBlocked(request.accountId(), parameters)
@@ -54,14 +63,19 @@ public class FraudEvaluationService {
         };
     }
 
-    private String velocityExceeded(FraudEvaluationRequest request, JsonNode parameters) {
+    private String velocityExceeded(
+            FraudEvaluationRequest request, JsonNode parameters, UUID currentPaymentId) {
         int maxTransactions = parameters.get("maxTransactions").intValue();
         int windowMinutes = parameters.get("windowMinutes").intValue();
-        Integer count = jdbcTemplate.queryForObject(
-                "select count(distinct payload->>'paymentId') from fraud.event_inbox where event_type = 'payment.created.v1' and payload->>'payerAccountId' = ? and received_at >= CURRENT_TIMESTAMP - (? * INTERVAL '1 minute')",
-                Integer.class,
-                request.accountId().toString(),
-                windowMinutes);
+        String sql = "select count(distinct payload->>'paymentId') from fraud.event_inbox where event_type = 'payment.created.v1' and payload->>'payerAccountId' = ? and received_at >= CURRENT_TIMESTAMP - (? * INTERVAL '1 minute')";
+        List<Object> arguments = new ArrayList<>();
+        arguments.add(request.accountId().toString());
+        arguments.add(windowMinutes);
+        if (currentPaymentId != null) {
+            sql += " and payload->>'paymentId' <> ?";
+            arguments.add(currentPaymentId.toString());
+        }
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, arguments.toArray());
         return count != null && count >= maxTransactions ? "account exceeded its transaction velocity limit" : null;
     }
 

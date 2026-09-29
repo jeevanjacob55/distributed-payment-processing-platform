@@ -5,6 +5,9 @@ spring:
     time-zone: ${TZ:UTC}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:fraud-service}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -31,4 +34,8 @@ logging:
 fraud:
   events:
     lifecycle-topic: ${PAYMENT_LIFECYCLE_TOPIC:payment.lifecycle.v1}
+    decision-topic: ${PAYMENT_FRAUD_DECISION_TOPIC:payment.fraud-decision.v1}
     dead-letter-topic: ${PAYMENT_DEAD_LETTER_TOPIC:payment.dlq.v1}
+  outbox:
+    batch-size: ${FRAUD_OUTBOX_BATCH_SIZE:50}
+    poll-interval: ${FRAUD_OUTBOX_POLL_INTERVAL:PT1S}

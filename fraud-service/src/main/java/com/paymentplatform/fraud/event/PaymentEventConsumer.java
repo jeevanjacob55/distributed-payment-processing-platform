@@ -2,7 +2,6 @@ package com.paymentplatform.fraud.event;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
@@ -21,8 +20,7 @@ public class PaymentEventConsumer {
     @KafkaListener(topics = "${fraud.events.lifecycle-topic:payment.lifecycle.v1}")
     public void consume(ConsumerRecord<String, String> record, Acknowledgment acknowledgment) throws Exception {
         JsonNode event = objectMapper.readTree(record.value());
-        inboxProcessor.store(UUID.fromString(event.required("eventId").asText()),
-                event.required("eventType").asText(), record.value());
+        inboxProcessor.process(event, record.value());
         acknowledgment.acknowledge();
     }
 }

@@ -8,6 +8,12 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: ${KAFKA_FRAUD_DECISION_GROUP:payment-service-fraud-decisions}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -35,6 +41,8 @@ payment:
   max-amount: ${PAYMENT_MAX_AMOUNT:1000000.0000}
   events:
     lifecycle-topic: ${PAYMENT_LIFECYCLE_TOPIC:payment.lifecycle.v1}
+    fraud-decision-topic: ${PAYMENT_FRAUD_DECISION_TOPIC:payment.fraud-decision.v1}
+    dead-letter-topic: ${PAYMENT_DEAD_LETTER_TOPIC:payment.dlq.v1}
   outbox:
     batch-size: ${PAYMENT_OUTBOX_BATCH_SIZE:50}
     poll-interval: ${PAYMENT_OUTBOX_POLL_INTERVAL:PT1S}
