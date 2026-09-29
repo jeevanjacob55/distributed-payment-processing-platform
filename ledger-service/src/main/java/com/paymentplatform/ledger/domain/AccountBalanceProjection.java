@@ -20,4 +20,9 @@ public class AccountBalanceProjection {
     @Version private long version;
 
     protected AccountBalanceProjection() {}
+
+    public AccountBalanceProjectionId getId() { return id; }
+    public BigDecimal getAvailableBalance() { return availableBalance; }
+    public BigDecimal getPostedBalance() { return postedBalance; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

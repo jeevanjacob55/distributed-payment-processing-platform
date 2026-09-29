@@ -13,6 +13,9 @@ public class AccountBalanceProjectionId implements Serializable {
 
     protected AccountBalanceProjectionId() {}
 
+    public UUID getAccountId() { return accountId; }
+    public String getCurrency() { return currency; }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) return true;

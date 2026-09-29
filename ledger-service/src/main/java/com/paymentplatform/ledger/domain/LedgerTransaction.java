@@ -24,4 +24,11 @@ public class LedgerTransaction {
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
 
     protected LedgerTransaction() {}
+
+    public UUID getId() { return id; }
+    public String getReferenceType() { return referenceType; }
+    public UUID getReferenceId() { return referenceId; }
+    public LedgerTransactionStatus getStatus() { return status; }
+    public String getDescription() { return description; }
+    public Instant getOccurredAt() { return occurredAt; }
 }

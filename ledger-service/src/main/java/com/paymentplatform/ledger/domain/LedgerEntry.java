@@ -25,4 +25,13 @@ public class LedgerEntry {
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
 
     protected LedgerEntry() {}
+
+    public UUID getId() { return id; }
+    public LedgerTransaction getTransaction() { return transaction; }
+    public UUID getAccountId() { return accountId; }
+    public LedgerEntryDirection getDirection() { return direction; }
+    public BigDecimal getAmount() { return amount; }
+    public String getCurrency() { return currency; }
+    public LedgerEntryStatus getStatus() { return status; }
+    public Instant getCreatedAt() { return createdAt; }
 }
