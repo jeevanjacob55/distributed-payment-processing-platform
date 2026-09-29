@@ -62,7 +62,7 @@ public class LedgerPostingService {
 
     private void updateProjection(UUID accountId, String currency, BigDecimal delta, UUID entryId) {
         jdbcTemplate.update(
-                "insert into ledger.account_balance_projections (account_id, currency, available_balance, posted_balance, last_entry_id, updated_at) values (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) on conflict (account_id, currency) do update set available_balance = ledger.account_balance_projections.available_balance + excluded.available_balance, posted_balance = ledger.account_balance_projections.posted_balance + excluded.posted_balance, last_entry_id = excluded.last_entry_id, updated_at = CURRENT_TIMESTAMP",
+                "insert into ledger.account_balance_projections (account_id, currency, available_balance, posted_balance, last_entry_id, updated_at) values (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) on conflict (account_id, currency) do update set available_balance = ledger.account_balance_projections.available_balance + excluded.available_balance, posted_balance = ledger.account_balance_projections.posted_balance + excluded.posted_balance, last_entry_id = excluded.last_entry_id, updated_at = CURRENT_TIMESTAMP, version = ledger.account_balance_projections.version + 1",
                 accountId,
                 currency,
                 delta,

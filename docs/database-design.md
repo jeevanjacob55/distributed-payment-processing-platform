@@ -143,3 +143,7 @@ For each posted transaction and currency, the sum of debit entries must equal th
 | `version` | bigint | Concurrency control |
 
 This projection is rebuildable from `ledger_entries`; it never replaces the immutable ledger as the audit record.
+
+Each finalized payment/refund event is consumed once through `consumed_events`. A posted transfer creates a `ledger_transactions` row and two equal entries, one debit and one credit in the same currency. A deferred PostgreSQL constraint trigger checks the final transaction contents at commit, so incomplete or unbalanced posted transactions cannot be committed. The same transaction adjusts the signed balance projection with an atomic upsert. Scheduled reconciliation compares both projection balances to the net posted-entry total and stores its latest result in `reconciliation_issues`.
+
+The ledger API exposes `GET /api/accounts/{id}/balance?currency=USD` and paginated `GET /api/accounts/{id}/transactions?page=0&size=50`, with optional currency and status filters. Balances represent posted ledger movements; opening balance entries are required to represent pre-existing funds.
