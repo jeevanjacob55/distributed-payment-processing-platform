@@ -28,6 +28,8 @@ Kafka topics use versioned payloads and a partition key of `paymentId` to preser
 | `payment.fraud-decision.v1` | Fraud service | Payment service |
 | `payment.dlq.v1` | Any failed consumer | Operations/replay worker |
 
+The Fraud Service stores enabled, versionable-by-code rule definitions in its own schema and evaluates configured maximum amounts, transaction velocity, repeated failed references, rolling transaction volume, and blocked account IDs. Rule changes use the Fraud Service rule API and take effect on the next evaluation. An evaluation returns `APPROVED`, `REVIEW`, or `BLOCKED` with matching rule codes. The payment event decision loop is task 38; the task 37 API can also be called directly for rule administration and evaluation.
+
 Redis is not a source of financial truth. It is reserved for short-lived rate limits, idempotency hot-cache entries, and narrowly scoped distributed locks where a documented cross-resource critical section cannot be protected by PostgreSQL row/version locking. PostgreSQL constraints and transactions remain the final guarantee against duplicate charges.
 
 ### Distributed locking
