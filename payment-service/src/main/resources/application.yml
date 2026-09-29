@@ -7,7 +7,7 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -34,7 +34,10 @@ server:
 payment:
   max-amount: ${PAYMENT_MAX_AMOUNT:1000000.0000}
   events:
-    completed-topic: ${PAYMENT_COMPLETED_TOPIC:payment.completed}
+    lifecycle-topic: ${PAYMENT_LIFECYCLE_TOPIC:payment.lifecycle.v1}
+  outbox:
+    batch-size: ${PAYMENT_OUTBOX_BATCH_SIZE:50}
+    poll-interval: ${PAYMENT_OUTBOX_POLL_INTERVAL:PT1S}
   idempotency-lock:
     ttl: ${PAYMENT_IDEMPOTENCY_LOCK_TTL:PT30S}
 management:

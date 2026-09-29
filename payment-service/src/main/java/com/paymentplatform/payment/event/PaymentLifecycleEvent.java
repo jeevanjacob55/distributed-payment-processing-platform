@@ -4,11 +4,15 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-public record PaymentCompletedEvent(
+public record PaymentLifecycleEvent(
+        UUID eventId,
+        int schemaVersion,
+        String eventType,
         UUID paymentId,
         UUID payerAccountId,
         UUID payeeAccountId,
         BigDecimal amount,
         String currency,
         String merchantReference,
-        Instant completedAt) {}
+        String status,
+        Instant occurredAt) {}

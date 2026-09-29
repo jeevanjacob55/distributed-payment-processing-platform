@@ -7,6 +7,7 @@ import com.paymentplatform.payment.domain.AccountStatus;
 import com.paymentplatform.payment.domain.Payment;
 import com.paymentplatform.payment.domain.PaymentStatus;
 import com.paymentplatform.payment.domain.Refund;
+import com.paymentplatform.payment.event.PaymentEventPublisher;
 import com.paymentplatform.payment.exception.DuplicateReferenceException;
 import com.paymentplatform.payment.exception.PaymentRejectedException;
 import com.paymentplatform.payment.exception.ResourceNotFoundException;
@@ -23,12 +24,17 @@ public class RefundCommandService {
     private final AccountRepository accountRepository;
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
+    private final PaymentEventPublisher paymentEventPublisher;
 
     public RefundCommandService(
-            AccountRepository accountRepository, PaymentRepository paymentRepository, RefundRepository refundRepository) {
+            AccountRepository accountRepository,
+            PaymentRepository paymentRepository,
+            RefundRepository refundRepository,
+            PaymentEventPublisher paymentEventPublisher) {
         this.accountRepository = accountRepository;
         this.paymentRepository = paymentRepository;
         this.refundRepository = refundRepository;
+        this.paymentEventPublisher = paymentEventPublisher;
     }
 
     @Transactional
@@ -60,6 +66,7 @@ public class RefundCommandService {
         payer.credit(request.amount());
 
         Refund refund = refundRepository.save(Refund.create(payment, request.amount(), request.reference()));
+        paymentEventPublisher.recordRefund(refund);
         if (refundedAmount.add(request.amount()).compareTo(payment.getAmount()) == 0) {
             payment.transitionTo(PaymentStatus.REVERSED);
         }

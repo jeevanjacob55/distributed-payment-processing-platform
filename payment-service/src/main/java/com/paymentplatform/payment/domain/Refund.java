@@ -41,6 +41,7 @@ public class Refund {
 
     public UUID getId() { return id; }
     public UUID getPaymentId() { return payment.getId(); }
+    public Payment getPayment() { return payment; }
     public BigDecimal getAmount() { return amount; }
     public String getCurrency() { return currency; }
     public RefundStatus getStatus() { return status; }

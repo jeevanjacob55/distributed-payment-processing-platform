@@ -36,6 +36,12 @@ Payment creation uses a Redis `SET NX` lock only for the short cross-instance wi
 
 Redis is deliberately not used to lock account balances or authorize funds. Those operations use deterministic PostgreSQL `PESSIMISTIC_WRITE` account-row locks, optimistic versions, constraints, and one transaction, which remain authoritative if Redis expires, restarts, or is partitioned.
 
+### Outbox delivery and compensation
+
+Each payment and refund state change appends a versioned JSON lifecycle event to `payment.outbox_events` in the same transaction as its account, payment, refund, and idempotency updates. A scheduled publisher locks eligible rows with `FOR UPDATE SKIP LOCKED`, waits for Kafka broker acknowledgement, then records `published_at`. It only claims the earliest unpublished event for each payment aggregate, so multiple publisher instances cannot overtake each other. A crash after Kafka accepts an event but before PostgreSQL commits `published_at` can cause redelivery; consumers deduplicate by stable `eventId` and therefore provide at-least-once delivery without duplicate ledger entries.
+
+The payment command is one PostgreSQL transaction: a failure before commit rolls back both account balance changes and the payment/outbox rows. After commit, the immutable ledger consumes completion and refund events independently. A refund is the compensating financial operation for a completed payment; it creates a new balanced transfer rather than editing the original ledger entries. Consumer failures are retried three times and then copied to `payment.dlq.v1` for operator replay. Ledger, fraud, and notification services persist an event inbox record before acknowledging, making replay idempotent.
+
 ## AWS topology
 
 Production deploys independently scalable containers to ECS/Fargate behind an Application Load Balancer. Private subnets contain the services, RDS PostgreSQL, ElastiCache Redis and MSK; only the load balancer is public. Secrets are retrieved from AWS Secrets Manager through task IAM roles. CloudWatch collects platform logs; Prometheus-compatible metrics feed Grafana. Terraform defines all infrastructure, with separate state and parameters per environment.

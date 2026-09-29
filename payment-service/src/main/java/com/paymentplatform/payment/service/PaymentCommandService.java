@@ -11,6 +11,7 @@ import com.paymentplatform.payment.domain.IdempotencyRecord;
 import com.paymentplatform.payment.domain.Payment;
 import com.paymentplatform.payment.domain.PaymentStatus;
 import com.paymentplatform.payment.event.PaymentEventPublisher;
+import com.paymentplatform.payment.event.PaymentFailureEventRecorder;
 import com.paymentplatform.payment.exception.PaymentProcessingException;
 import com.paymentplatform.payment.exception.DuplicateReferenceException;
 import com.paymentplatform.payment.exception.IdempotencyConflictException;
@@ -43,6 +44,7 @@ public class PaymentCommandService {
     private final BigDecimal maxPaymentAmount;
     private final PaymentEventPublisher paymentEventPublisher;
     private final IdempotencyLockService idempotencyLockService;
+    private final PaymentFailureEventRecorder failureEventRecorder;
 
     public PaymentCommandService(
             AccountRepository accountRepository,
@@ -51,7 +53,8 @@ public class PaymentCommandService {
             ObjectMapper objectMapper,
             @Value("${payment.max-amount:1000000.0000}") BigDecimal maxPaymentAmount,
             PaymentEventPublisher paymentEventPublisher,
-            IdempotencyLockService idempotencyLockService) {
+            IdempotencyLockService idempotencyLockService,
+            PaymentFailureEventRecorder failureEventRecorder) {
         this.accountRepository = accountRepository;
         this.idempotencyRecordRepository = idempotencyRecordRepository;
         this.paymentRepository = paymentRepository;
@@ -59,6 +62,7 @@ public class PaymentCommandService {
         this.maxPaymentAmount = maxPaymentAmount;
         this.paymentEventPublisher = paymentEventPublisher;
         this.idempotencyLockService = idempotencyLockService;
+        this.failureEventRecorder = failureEventRecorder;
     }
 
     @Transactional
@@ -88,7 +92,12 @@ public class PaymentCommandService {
         if (replay.isPresent()) {
             return replay.get();
         }
-        validatePayment(request, payer, payee);
+        try {
+            validatePayment(request, payer, payee);
+        } catch (RuntimeException exception) {
+            failureEventRecorder.record(request);
+            throw exception;
+        }
 
         Payment payment = Payment.create(
                 payer,
@@ -99,12 +108,15 @@ public class PaymentCommandService {
                 idempotencyKey);
         IdempotencyRecord record = IdempotencyRecord.inProgress("payments.create", idempotencyKey, requestHash);
         Payment savedPayment = paymentRepository.save(payment);
+        paymentEventPublisher.record(savedPayment, PaymentStatus.CREATED.name());
         payer.debit(request.amount());
         payee.credit(request.amount());
         savedPayment.transitionTo(PaymentStatus.VALIDATED);
+        paymentEventPublisher.record(savedPayment, PaymentStatus.VALIDATED.name());
         savedPayment.transitionTo(PaymentStatus.AUTHORIZED);
+        paymentEventPublisher.record(savedPayment, PaymentStatus.AUTHORIZED.name());
         savedPayment.transitionTo(PaymentStatus.COMPLETED);
-        paymentEventPublisher.publishCompleted(savedPayment);
+        paymentEventPublisher.record(savedPayment, PaymentStatus.COMPLETED.name());
         PaymentResponse response = PaymentResponse.from(savedPayment);
         record.complete(savedPayment, serialize(response));
         idempotencyRecordRepository.save(record);

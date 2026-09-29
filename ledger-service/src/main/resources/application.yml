@@ -3,6 +3,14 @@ spring:
     name: ledger-service
   jackson:
     time-zone: ${TZ:UTC}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:ledger-service}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
   profiles:
     default: dev
   datasource:
@@ -27,3 +35,7 @@ management:
 logging:
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC} level=%-5level service=${spring.application.name} trace=%X{traceId:-} request=%X{requestId:-} logger=%logger{36} - %msg%n"
+ledger:
+  events:
+    lifecycle-topic: ${PAYMENT_LIFECYCLE_TOPIC:payment.lifecycle.v1}
+    dead-letter-topic: ${PAYMENT_DEAD_LETTER_TOPIC:payment.dlq.v1}

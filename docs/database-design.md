@@ -33,6 +33,8 @@ The payment and ledger services have separate PostgreSQL schemas and separate da
 
 An account has exactly one currency. A future multi-currency wallet is modeled as multiple accounts rather than a mixed-currency balance.
 
+Payment and refund commands load every affected account with a PostgreSQL `SELECT ... FOR UPDATE` lock inside the same transaction that validates and changes balances. When a command touches two accounts, it locks them in ascending UUID order to avoid deadlocks. The payer's available balance is therefore re-read only after competing writes to that account have committed; a second concurrent debit cannot use a stale balance. The `version` column is also mapped with JPA `@Version` as an optimistic concurrency safeguard for any update path that does not acquire the pessimistic lock. The database's nonnegative-balance check remains a final invariant.
+
 ### `payments`
 
 | Column | Type | Notes |
@@ -77,7 +79,7 @@ Each external processor attempt is recorded rather than overwriting a payment.
 | `reference` | varchar(128) | Client-visible refund reference |
 | `created_at`, `updated_at` | timestamptz | Audit fields |
 
-Refund totals are validated against the original completed amount transactionally; the concrete database constraint and locking strategy are task 11 and task 26 work.
+Refund totals are validated against the original completed amount transactionally; account locks use the same deterministic ordering described above.
 
 ### `idempotency_records`
 
