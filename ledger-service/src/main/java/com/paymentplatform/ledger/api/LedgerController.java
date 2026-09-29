@@ -34,12 +34,9 @@ public class LedgerController {
     public Page<LedgerEntryResponse> getTransactions(
             @PathVariable UUID accountId,
             @RequestParam(required = false) @Pattern(regexp = "[A-Z]{3}") String currency,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @Pattern(regexp = "PENDING|POSTED|REVERSED") String status,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
-        if (status != null && !java.util.Set.of("PENDING", "POSTED", "REVERSED").contains(status)) {
-            throw new IllegalArgumentException("status must be PENDING, POSTED, or REVERSED");
-        }
         return queryService.getTransactions(accountId, currency, status, page, size);
     }
 }
