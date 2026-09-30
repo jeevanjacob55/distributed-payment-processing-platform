@@ -1,10 +1,13 @@
 package com.paymentplatform.notification.event;
 
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
@@ -14,6 +17,12 @@ import org.springframework.util.backoff.FixedBackOff;
 
 @Configuration
 public class KafkaConsumerConfiguration {
+    @Bean
+    NewTopic paymentDeadLetterTopic(
+            @Value("${notification.events.dead-letter-topic:payment.dlq.v1}") String deadLetterTopic) {
+        return TopicBuilder.name(deadLetterTopic).partitions(3).replicas(1).build();
+    }
+
     @Bean
     ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             ConsumerFactory<String, String> consumerFactory,
